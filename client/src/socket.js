@@ -1,6 +1,6 @@
 import { io } from "socket.io-client";
 
-const URL = "http://localhost:8000";
+const URL = "/";
 
 const socket = io(URL, {
   path: "/socket.io",
