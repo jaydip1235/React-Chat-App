@@ -66,7 +66,7 @@ const chat = (io) => {
 
     socket.emit("users", users);
 
-    // when a new user joins, nofity existing users
+    
     socket.broadcast.emit("user connected", {
       userID: socket.id,
       username: socket.username,

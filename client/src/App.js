@@ -18,7 +18,7 @@ function App() {
   const [users, setUsers] = useState([]);
   const [typing, setTyping] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
-  // private message
+
   const [privateMessage, setPrivateMessage] = useState("");
 
   useEffect(() => {
