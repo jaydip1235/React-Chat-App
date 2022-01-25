@@ -80,10 +80,11 @@ const chat = (io) => {
       // console.log("typing", username);
       socket.broadcast.emit("typing", `${username} is typing...`);
     });
-
-    socket.on("private message", ({ message, to }) => {
+    //console.log("asdasddsa")
+    socket.on("private message", ({ mm, to }) => {
+     // console.log(mm)
       socket.to(to).emit("private message", {
-        message,
+        mm,
         from: socket.id,
       });
     });

@@ -13,14 +13,21 @@ function App() {
 
   const [username, setUsername] = useState("");
   const [connected, setConnected] = useState(false);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState({
+    type:'',
+    data_rec:''
+  });
   const [messages, setMessages] = useState([]);
   const [users, setUsers] = useState([]);
   const [typing, setTyping] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
+  const [textEnable, setTextEnable] = useState(true)
+  const [textEnablePrivate, setTextEnablePrivate]= useState(true)
 
-  const [privateMessage, setPrivateMessage] = useState("");
-
+  const [privateMessage, setPrivateMessage] = useState({
+    type:'',
+    data_recc:''
+  });
   useEffect(() => {
     socket.on("user joined", (msg) => {
       console.log("user joined message", msg);
@@ -34,7 +41,8 @@ function App() {
         {
           id: data.id,
           name: data.name,
-          message: data.message,
+          message: data.m.data_rec,
+          type: data.m.type
         },
       ]);
     });
@@ -103,6 +111,55 @@ function App() {
     };
   }, [users, socket]);
 
+
+  useEffect(() => {
+    socket.on("typing", (data) => {
+      setTyping(data);
+      setTimeout(() => {
+        setTyping("");
+      }, 1000);
+    });
+
+    return () => {
+      socket.off("typing");
+    };
+  }, []);
+
+  useEffect(() => {
+    socket.on("private message", ({ mm, from }) => {
+      // console.log("message > ", message, "from > ", from);
+      const allUsers = users;
+      let index = allUsers.findIndex((u) => u.userID === from);
+      let foundUser = allUsers[index];
+
+      foundUser.messages.push({
+        type:mm.type,
+        message:mm.data_rec_private,
+        fromSelf: false,
+      });
+
+      if (foundUser) {
+        console.log("asdassidkfhbsdmf1")
+        if (selectedUser) {
+          console.log("asdassidkfhbsdmf2")
+          if (foundUser.userID !== selectedUser.userID) {
+            console.log("asdassidkfhbsdmf3")
+            foundUser.hasNewMessages = true;
+          }
+        } else {
+          foundUser.hasNewMessages = true;
+        }
+
+        allUsers[index] = foundUser;
+        setUsers([...allUsers]);
+      }
+    });
+
+    return () => {
+      socket.off("private message");
+    };
+  }, [users]);
+
   const handleUsername = (e) => {
     e.preventDefault();
     // console.log(username);
@@ -124,64 +181,26 @@ function App() {
   };
 
   const handleMessage = (e) => {
+    let t
+    if(textEnable==true) t="text"
+    else t="im"
+
     console.log(message)
     e.preventDefault();
     socket.emit("message", {
       id: Date.now(),
       name: username,
-      message,
+      m:{type:t, data_rec:message.data_rec},
     });
-    setMessage("");
-    console.log("Heeeee")
+    setMessage({  type:'',data_rec:''})
+   // console.log("Heeeee")
   };
 
-  if (message) {
+  if (message.data_rec) {
     socket.emit("typing", username);
   }
 
-  useEffect(() => {
-    socket.on("typing", (data) => {
-      setTyping(data);
-      setTimeout(() => {
-        setTyping("");
-      }, 1000);
-    });
-
-    return () => {
-      socket.off("typing");
-    };
-  }, []);
-
-  useEffect(() => {
-    socket.on("private message", ({ message, from }) => {
-      // console.log("message > ", message, "from > ", from);
-      const allUsers = users;
-      let index = allUsers.findIndex((u) => u.userID === from);
-      let foundUser = allUsers[index];
-
-      foundUser.messages.push({
-        message,
-        fromSelf: false,
-      });
-
-      if (foundUser) {
-        if (selectedUser) {
-          if (foundUser.userID !== selectedUser.userID) {
-            foundUser.hasNewMessages = true;
-          }
-        } else {
-          foundUser.hasNewMessages = true;
-        }
-
-        allUsers[index] = foundUser;
-        setUsers([...allUsers]);
-      }
-    });
-
-    return () => {
-      socket.off("private message");
-    };
-  }, [users]);
+ 
 
   const handleUsernameClick = (user) => {
     if (user.self || !user.connected) return;
@@ -196,22 +215,62 @@ function App() {
     setUsers([...allUsers]);
   };
 
+
+  const uploadImage=async(e)=>{
+    const file=e.target.files[0];
+    const base64=await convertBase64(file);
+    setMessage({...message, data_rec: base64.toString()})
+  }
+
+  const uploadImage2=async(e)=>{
+    const file=e.target.files[0];
+    const base64=await convertBase64(file);
+    setPrivateMessage({...privateMessage, data_recc: base64.toString()})
+  }
+  
+  const convertBase64=(file)=>{
+    return new Promise((resolve,reject)=>{
+      const fileReader=new FileReader();
+      fileReader.readAsDataURL(file);
+      fileReader.onload=()=>{
+        resolve(fileReader.result);
+      }
+      
+      fileReader.onerror=(err)=>{
+        reject(err);
+      }
+    })
+  }
+
+
+
   const handlePrivateMessage = (e) => {
+
+
+
+    let tt
+    if(textEnablePrivate==true) tt="text"
+    else tt="im"
+
     e.preventDefault();
+   
+    console.log("lllllll")
     if (selectedUser) {
       socket.emit("private message", {
-        message: privateMessage,
+        mm: {type:tt, data_rec_private : privateMessage.data_recc},
         to: selectedUser.userID,
       });
 
       let updated = selectedUser;
       updated.messages.push({
-        message: privateMessage,
+        type:tt,
+        message: privateMessage.data_recc,
         fromSelf: true,
         hasNewMessages: false,
       });
+      console.log(updated);
       setSelectedUser(updated);
-      setPrivateMessage("");
+      setPrivateMessage({  type:'',data_recc:''})
     }
   };
 
@@ -220,10 +279,10 @@ function App() {
       <Toaster />
       <div className="row bg-primary text-center">
         <h1 className="fw-bold pt-2 text-light">
-          MERN-STACK REALTIME CHAT APP
+          ASSIGNMENT-2
         </h1>
         <br />
-        <p className="lead text-light">📨 Public and private chat 📨</p>
+        <p className="lead text-light"> Name : Jaydip Dey... Roll:001910501014 </p>
       </div>
 
       {!connected && (
@@ -237,6 +296,7 @@ function App() {
                   type="text"
                   placeholder="Enter your name"
                   className="form-control"
+                 
                 />
               </div>
 
@@ -270,6 +330,7 @@ function App() {
                 ) : (
                   <span className="offline-dot"></span>
                 )}
+
                 {user.hasNewMessages && <b className="text-danger">_ _ _</b>}
                 {user.hasNewMessages && (
                   <b className="text-danger">
@@ -282,16 +343,45 @@ function App() {
 
         {connected && (
           <div className="col-md-5">
+
+
+
+<div class="form-check">
+  <input class="form-check-input" type="radio" name="exampleRadios" id="exampleRadios1" value="option1" checked={!textEnable} onChange={e=>setTextEnable(!e.target.checked)}
+  />
+  <label class="form-check-label" for="exampleRadios1">
+    Image
+  </label>
+</div>
+<div class="form-check">
+  <input class="form-check-input" type="radio" name="exampleRadios" id="exampleRadios2" value="option2"  checked={textEnable} onChange={e=>setTextEnable(e.target.checked)}
+  />
+  <label class="form-check-label" for="exampleRadios2">
+    Text
+  </label>
+</div>
+
+
+
             <form onSubmit={handleMessage} className="text-center pt-3">
               <div className="row g-3">
                 <div className="col-10">
                   <input
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
+                    value={message.data_rec}
+                    onChange={(e) => setMessage({...message, data_rec: e.target.value})}
                     type="text"
                     placeholder="Type your message (public)"
                     className="form-control"
+                    type= { textEnable===false ?"hidden":""}
                   />
+
+
+                  {/* <pre>{JSON.stringify(messages)}</pre>
+                  <pre>{JSON.stringify(message.data_rec)}</pre> */}
+                  {!textEnable && 
+                  <input class="form-control" type="file" id="formFile" onChange={(e)=>{uploadImage(e)}}/>
+                  }
+
                 </div>
 
                 <div className="col-2">
@@ -305,16 +395,18 @@ function App() {
             <br />
 
             <div className="col">
+            {typing && typing}
               <ScrollToBottom className={ROOT_CSS}>
                 {messages.map((m) => (
                   <div className="alert alert-secondary" key={m.id}>
                     {m.name.charAt(0).toUpperCase() + m.name.slice(1)} -{" "}
-                    {m.message}
+                    {m.type=="im" && <img  src={m.message}/>}
+                    {m.type=="text" && m.message}
                   </div>
                 ))}
               </ScrollToBottom>
               <br />
-              {typing && typing}
+             
             </div>
           </div>
         )}
@@ -323,18 +415,40 @@ function App() {
 
         {selectedUser && (
           <div className="col-md-5">
+
+<div class="form-check">
+  <input class="form-check-input" type="radio" name="exampleRadios1" id="exampleRadios11" value="option11" checked={!textEnablePrivate} onChange={e=>setTextEnablePrivate(!e.target.checked)}
+  />
+  <label class="form-check-label" for="exampleRadios11">
+    Image
+  </label>
+</div>
+<div class="form-check">
+  <input class="form-check-input" type="radio" name="exampleRadios2" id="exampleRadios22" value="option22"  checked={textEnablePrivate} onChange={e=>setTextEnablePrivate(e.target.checked)}
+  />
+  <label class="form-check-label" for="exampleRadios22">
+    Text
+  </label>
+</div>
+
             <form onSubmit={handlePrivateMessage} className="text-center pt-3">
               <div className="row g-3">
                 <div className="col-10">
                   <input
-                    value={privateMessage}
-                    onChange={(e) => setPrivateMessage(e.target.value)}
+                    value={privateMessage.data_recc}
+                    onChange={(e) =>setPrivateMessage({...privateMessage, data_recc: e.target.value})}
                     type="text"
                     placeholder="Type your message (private)"
                     className="form-control"
+                    type= { textEnablePrivate===false ?"hidden":""}
                   />
                 </div>
 
+
+                {!textEnablePrivate && 
+                  <input class="form-control" type="file" id="formFile2" onChange={(e)=>{uploadImage2(e)}}/>
+                  }
+                  {/* <pre>{JSON.stringify(privateMessage)}</pre> */}
                 <div className="col-2">
                   <button className="btn btn-secondary" type="submit">
                     Send
@@ -346,6 +460,7 @@ function App() {
             <br />
 
             <div className="col">
+              {/* <pre>{JSON.stringify(selectedUser.messages)}</pre> */}
               <ScrollToBottom className={ROOT_CSS}>
                 {selectedUser &&
                   selectedUser.messages &&
@@ -356,7 +471,9 @@ function App() {
                         : selectedUser.username.charAt(0).toUpperCase() +
                           selectedUser.username.slice(1)}{" "}
                       {" - "}
-                      {msg.message}
+                      {/* {msg.message} */}
+                    {msg.type=="im" && <img  src={msg.message}/>}
+                    {msg.type=="text" && msg.message}
                     </div>
                   ))}
               </ScrollToBottom>

@@ -10,7 +10,7 @@ const http = require('http').createServer(app);
 const io = require('socket.io')(http,{
     path : '/socket.io',
     cors : {
-        origin : ['https://temp-chat-mern.herokuapp.com/'],
+        origin : ['http://localhost:3000'],
         method : ["GET","POST"],
         allowHeaders : ["content-type"],
     }
